@@ -6,7 +6,7 @@ class GNNTransformMD(object):
     Transform the dict returned by the ProtDataset class to a pyTorch Geometric graph
     """
 
-    def _init_(self, edge_dist_cutoff=4.5):
+    def __init__(self, edge_dist_cutoff=4.5):
         """
 
         Args:
@@ -14,7 +14,7 @@ class GNNTransformMD(object):
         """
         self.edge_dist_cutoff = edge_dist_cutoff 
 
-    def _call_(self, data_dict):
+    def __call__(self, data_dict):
 
         score_features = data_dict["scores"]
     
