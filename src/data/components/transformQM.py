@@ -3,7 +3,7 @@ from torch_geometric.data import Data
 
 class GNNTransformQM(object):
    
-    def _call_(self, data_dict):
+    def __call__(self, data_dict):
         """
         Transforms a data dictionary.
 
