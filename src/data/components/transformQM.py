@@ -1,55 +1,61 @@
-'''MISATO, a database for protein-ligand interactions
-    Copyright (C) 2023  
-                        Till Siebenmorgen  (till.siebenmorgen@helmholtz-munich.de)
-                        Sabrina Benassou   (s.benassou@fz-juelich.de)
-                        Filipe Menezes     (filipe.menezes@helmholtz-munich.de)
-                        Erinç Merdivan     (erinc.merdivan@helmholtz-munich.de)
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the Free Software 
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA'''
-
 import torch
-from transforms import mol_graph_transform_for_qm
-
-
-ATOMS_KEYS = {8: 0, 16: 1, 6: 2, 7: 3, 1: 4, 15: 5, 17: 6, 9: 7, 53: 8, 35: 9, 5: 10, 33: 11, 26: 12, 14: 13, 34: 14, 44: 15, 12: 16, 23: 17, 77: 18, 27: 19, 52: 20, 30: 21, 4: 22, 45: 23}
+from torch_geometric.data import Data
 
 class GNNTransformQM(object):
-    """
-    Transform the dict returned by the MolDataset class to a pyTorch Geometric graph
-    """
-
-    def __init__(self, atoms_keys=ATOMS_KEYS, use_bonds=False, onehot_edges=False, edge_dist_cutoff=4.5):
+   
+    def _call_(self, data_dict):
         """
+        Transforms a data dictionary.
 
         Args:
-            atoms_keys (dict, optional): one hot encoding for atoms. Defaults to ATOMS_KEYS.
-            use_bonds (bool, optional): use the bond information or neighboring distance. Defaults to False.
-            onehot_edges (bool, optional): one hot encoding for different edge types. Defaults to False.
-        """
-        self.atoms_keys = atoms_keys 
-        self.use_bonds = use_bonds
-        self.onehot_edges = onehot_edges
-        self.edge_dist_cutoff = edge_dist_cutoff
-        
-    def __call__(self, item):
-        item = mol_graph_transform_for_qm(item, 'atoms', 'labels', allowable_atoms=self.atoms_keys, use_bonds=self.use_bonds, onehot_edges=self.onehot_edges, edge_dist_cutoff=self.edge_dist_cutoff)
+            data_dict: The data dictionary to be transformed.
 
-        graph = item['atoms']   
-        graph.x = graph.x.to(torch.float)
-        graph.y = item['labels']
-        graph.id = item['id']
-      
-        return graph
-    
+        Returns:
+            The transformed data dictionary.
+        """
+
+        # Extract node features (atoms) from the dictionary
+        atom_features = data_dict["atoms"]
+        num_atoms = len(atom_features)
+        num_atom_features = len(atom_features.columns)
+
+        # Extract edge indices (bonds) from the dictionary
+        edge_indices = data_dict["bonds"]
+        num_bonds = edge_indices.shape[0]
+
+        # Extract additional feature (gfn0) from the dictionary
+        gfn0_features = data_dict["gfn0"]
+        num_gfn0_features = 1  # Assuming it's a single scalar value per atom (you can modify if needed)
+
+        # Extract target labels from the dictionary (optional)
+        target_labels = data_dict.get("labels", None)
+
+        # Prepare node features (atom features)
+        atom_features_tensor = torch.tensor(atom_features.values, dtype=torch.float)
+
+        # Prepare edge indices (bonds)
+        edge_indices_tensor = torch.tensor(edge_indices.T, dtype=torch.long)
+
+        # Prepare additional feature (gfn0)
+        gfn0_features_tensor = torch.tensor(gfn0_features, dtype=torch.float).view(-1, num_gfn0_features)
+
+        # Prepare target labels (optional)
+        if target_labels is not None:
+            target_labels_tensor = torch.tensor(target_labels, dtype=torch.float)
+        else:
+            target_labels_tensor = None
+
+        # Set node positions to an empty tensor
+        pos_tensor = torch.empty((num_atoms, 0), dtype=torch.float)
+
+        # Create a PyTorch Geometric Data object
+        data = Data(
+            x=atom_features_tensor,
+            edge_index=edge_indices_tensor,
+            pos=pos_tensor,  # Set the node positions to an empty tensor
+            gfn0=gfn0_features_tensor,  # Add the additional feature to the Data object
+            y=target_labels_tensor,
+            pid=data_dict["id"]
+        )
+
+        return data
