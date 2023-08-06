@@ -1,24 +1,3 @@
-'''MISATO, a database for protein-ligand interactions
-    Copyright (C) 2023  
-                        Till Siebenmorgen  (till.siebenmorgen@helmholtz-munich.de)
-                        Sabrina Benassou   (s.benassou@fz-juelich.de)
-                        Filipe Menezes     (filipe.menezes@helmholtz-munich.de)
-                        Erinç Merdivan     (erinc.merdivan@helmholtz-munich.de)
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the Free Software 
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA'''
-
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -32,7 +11,7 @@ class ProtDataset(Dataset):
         Load the MD dataset
     """
 
-    def __init__(self, md_data_file, idx_file, transform=None, post_transform=None):
+    def _init_(self, md_data_file, idx_file, transform=None):
         """
 
         Args:
@@ -51,16 +30,13 @@ class ProtDataset(Dataset):
 
         self._transform = transform
 
-        self._post_transform = post_transform
 
-    def __len__(self) -> int:
+    def _len_(self) -> int:
         return len(self.ids)
 
-    def __getitem__(self, index: int):
+    def _getitem_(self, index: int):
         if not 0 <= (index) < len(self.ids):
             raise IndexError(index)
-
-        item = {}
             
         column_names = ["x", "y", "z", "element"]
         atoms_protein = pd.DataFrame(columns = column_names)
@@ -68,6 +44,7 @@ class ProtDataset(Dataset):
         pitem = self.f[self.ids[index]]
 
         cutoff = pitem["molecules_begin_atom_index"][:][-1]
+        traj_cord = pitem["frames_rmsd_ligand"][()]
       
         atoms_protein["x"] = pitem["atoms_coordinates_ref"][:][:cutoff, 0]
         atoms_protein["y"] = pitem["atoms_coordinates_ref"][:][:cutoff, 1]
@@ -75,17 +52,20 @@ class ProtDataset(Dataset):
 
         atoms_protein["element"] = pitem["atoms_element"][:][:cutoff]  
 
-        item["scores"] = pitem["feature_atoms_adaptability"][:][:cutoff]
-
-        item["atoms_protein"] = atoms_protein
-
-        item["id"] = self.ids[index]
+        item = {"scores" : pitem["feature_atoms_adaptability"][:][:cutoff],
+            "atoms_protein": atoms_protein,
+             "id" : self.ids[index],
+            "frames": traj_cord
+        }  
+        
         
         if self._transform:
             item = self._transform(item)
 
-        if self._post_transform:
-            item = self._post_transform(item)
+    
+            
+
+        
     
         return item
 
@@ -95,7 +75,7 @@ class MolDataset(Dataset):
         Load the QM dataset.
     """
 
-    def __init__(self, data_file, idx_file, target_norm_file, transform, isTrain=False, post_transform=None):
+    def _init_(self, data_file, idx_file, target_norm_file, transform, isTrain=False, post_transform=None):
         """
 
         Args:
@@ -131,10 +111,10 @@ class MolDataset(Dataset):
         
         self.isTrain = isTrain
 
-    def __len__(self) -> int:
+    def _len_(self) -> int:
         return len(self.ids)
 
-    def __getitem__(self, index: int):
+    def _getitem_(self, index: int):
         if not 0 <= index < len(self.ids):
             raise IndexError(index)
 
@@ -147,7 +127,7 @@ class MolDataset(Dataset):
         atoms["x"] = prop[:,0].astype(np.float32)
         atoms["y"] = prop[:,1].astype(np.float32)
         atoms["z"] = prop[:,2].astype(np.float32)
-        
+        gfn=prop[:,2].astype(np.float32)
         atoms["element"] = np.array([int(element.decode('utf-8')) for element in pitem["atom_properties/atom_names"][:]])
         
         bonds = pitem["atom_properties/bonds"][:]
@@ -173,7 +153,8 @@ class MolDataset(Dataset):
         item = {"atoms" : atoms,
             "labels": ((scores - all_mean) / all_std).float(),
             "bonds": bonds, 
-            "id": self.ids[index]
+            "id": self.ids[index],
+            "gfn0":gfn
         }
 
         if self._transform:
