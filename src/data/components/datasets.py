@@ -11,7 +11,7 @@ class ProtDataset(Dataset):
         Load the MD dataset
     """
 
-    def _init_(self, md_data_file, idx_file, transform=None):
+    def __init__(self, md_data_file, idx_file, transform=None):
         """
 
         Args:
@@ -31,10 +31,10 @@ class ProtDataset(Dataset):
         self._transform = transform
 
 
-    def _len_(self) -> int:
+    def __len__(self) -> int:
         return len(self.ids)
 
-    def _getitem_(self, index: int):
+    def __getitem__(self, index: int):
         if not 0 <= (index) < len(self.ids):
             raise IndexError(index)
             
@@ -75,7 +75,7 @@ class MolDataset(Dataset):
         Load the QM dataset.
     """
 
-    def _init_(self, data_file, idx_file, target_norm_file, transform, isTrain=False, post_transform=None):
+    def __init__(self, data_file, idx_file, target_norm_file, transform, isTrain=False, post_transform=None):
         """
 
         Args:
@@ -111,10 +111,10 @@ class MolDataset(Dataset):
         
         self.isTrain = isTrain
 
-    def _len_(self) -> int:
+    def __len__(self) -> int:
         return len(self.ids)
 
-    def _getitem_(self, index: int):
+    def __getitem__(self, index: int):
         if not 0 <= index < len(self.ids):
             raise IndexError(index)
 
